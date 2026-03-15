@@ -14,26 +14,42 @@ An AI-powered face recognition attendance system with **liveness detection** and
 
 ```
 Face_Attendance_Project/
-├── attendance_ai.py       # Main attendance system
-├── register_face.py       # Face registration script
-├── train_cnn.py           # Train face recognition model
-├── train_liveness.py      # Train liveness detection CNN
-├── blink.py               # Eye Aspect Ratio calculation
-├── attendance.csv         # Attendance records
-├── dataset/               # Registered face images
-│   └── <person_name>/     # 250 images per person
+├── backend/                   # FastAPI REST backend
+│   ├── main.py                # API entry point
+│   ├── camera_manager.py      # Camera listing, switching, MJPEG streaming
+│   ├── attendance_engine.py   # Real-time recognition pipeline
+│   ├── alert_manager.py       # Unknown-person alert + image capture
+│   ├── face_register.py       # Face registration API
+│   ├── trainer.py             # LBPH model training API
+│   └── requirements.txt       # Backend Python deps
+├── frontend/                  # React (Vite) web UI
+│   ├── src/
+│   │   ├── pages/             # Dashboard, Register, Settings, Unknown
+│   │   ├── components/        # LiveFeed, AlertPanel, CameraSettings, etc.
+│   │   └── services/api.js    # API client
+│   └── index.html
+├── attendance_ai.py           # Original standalone attendance script
+├── register_face.py           # Original standalone registration script
+├── train_cnn.py               # Train face recognition model (LBPH)
+├── train_liveness.py          # Train liveness detection CNN
+├── blink.py                   # Eye Aspect Ratio calculation
+├── attendance.csv             # Attendance records
+├── dataset/                   # Registered face images
+│   └── <person_name>/         # Images per person (configurable)
+├── unknown_captures/          # Captured unknown-person images
 └── models/
-    ├── recognizer.yml     # Trained LBPH model
-    ├── liveness_model.pth # Trained liveness CNN (PyTorch)
-    └── names.txt          # List of registered names
+    ├── recognizer.yml         # Trained LBPH model
+    ├── liveness_model.pth     # Trained liveness CNN (PyTorch)
+    └── names.txt              # List of registered names
 ```
 
 ## Requirements
 
 - Python 3.10+
+- Node.js 18+
 - Webcam
 
-### Dependencies
+### Python Dependencies
 
 ```
 opencv-python
@@ -42,9 +58,14 @@ numpy
 scipy
 mediapipe
 torch
+fastapi
+uvicorn[standard]
+python-multipart
 ```
 
-## Installation
+## Installation & Running
+
+### Option A: Full-Stack Web App (Recommended)
 
 1. **Clone the repository**
    ```bash
@@ -52,77 +73,77 @@ torch
    cd Face_Attendance_Project
    ```
 
-2. **Create virtual environment**
+2. **Install backend dependencies**
    ```bash
-   python -m venv env
+   pip install -r backend/requirements.txt
    ```
 
-3. **Activate virtual environment**
-   - Windows:
-     ```bash
-     env\Scripts\activate
-     ```
-   - Linux/Mac:
-     ```bash
-     source env/bin/activate
-     ```
-
-4. **Install dependencies**
+3. **Install frontend dependencies**
    ```bash
-   pip install opencv-python opencv-contrib-python numpy scipy mediapipe torch
+   cd frontend
+   npm install
+   cd ..
    ```
 
-## Usage
+4. **Start the backend** (Terminal 1)
+   ```bash
+   cd backend
+   uvicorn main:app --reload --host 0.0.0.0 --port 8000
+   ```
+   > **Conda users:** Replace `uvicorn` with your env's Python:
+   > ```bash
+   > C:\Users\<you>\miniconda3\envs\<env>\python.exe -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+   > ```
 
-### Step 1: Register a New Face
+5. **Start the frontend** (Terminal 2)
+   ```bash
+   cd frontend
+   npm run dev
+   ```
 
-Captures 250 face images for training.
+6. **Open** [http://localhost:5173](http://localhost:5173) in your browser.
 
-```bash
-python register_face.py
-```
+#### Web App Features
 
-- Enter the person's name when prompted
-- Face the camera and move slightly for varied angles
-- Press `ESC` to stop early
+| Page | What it does |
+|------|-------------|
+| **Dashboard** | Live camera feed, start/stop monitoring, alert panel, attendance log |
+| **Register Face** | Enter name, set capture limit (10–500), capture face images |
+| **Unknown Gallery** | View captured images of unrecognised faces (watermarked with camera name) |
+| **Settings** | Switch cameras, view system info |
 
-### Step 2: Train the Recognition Model
+**Workflow:**
+1. Go to **Register Face** → enter a name → adjust the image count slider → click **Start Capture**
+2. Click **Train Model** after registration
+3. Go to **Dashboard** → click **Start Monitoring**
+4. Blink 3 times in front of the camera → attendance is marked automatically
+5. Unknown faces trigger an **alert** with image capture → view in **Unknown Gallery**
 
-Trains the LBPH face recognizer on all registered faces.
+---
 
-```bash
-python train_cnn.py
-```
+### Option B: Standalone CLI Scripts (Original)
 
-### Step 3: (Optional) Train Liveness Model
+1. **Register a face** — captures face images for training:
+   ```bash
+   python register_face.py
+   ```
 
-If you have a liveness dataset with real/fake images:
+2. **Train the model** — trains LBPH recognizer on all registered faces:
+   ```bash
+   python train_cnn.py
+   ```
 
-```bash
-python train_liveness.py
-```
+3. **Run attendance** — real-time face recognition with anti-spoofing:
+   ```bash
+   python attendance_ai.py
+   ```
 
-**Dataset structure:**
-```
-liveness_dataset/
-├── real/    # Real face images
-└── fake/    # Spoofed images (photos, screens)
-```
+4. **(Optional) Train liveness model** — if you have a `liveness_dataset/real/` and `liveness_dataset/fake/` directory:
+   ```bash
+   python train_liveness.py
+   ```
 
-### Step 4: Run Attendance System
-
-```bash
-python attendance_ai.py
-```
-
-**Verification Process:**
-1. Face is detected using Haar Cascade
-2. Liveness is checked using CNN (green box = live, red = spoof)
-3. User must blink **3 times** to prove they are real
-4. Face is recognized and attendance is marked
-5. Attendance is logged to `attendance.csv`
-
-Press `ESC` to exit.
+Press `ESC` to exit any script.
 
 ## How It Works
 
